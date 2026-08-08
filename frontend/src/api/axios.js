@@ -16,8 +16,8 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem('vps_token');
       localStorage.removeItem('vps_user');
-      if (!window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login';
+      if (!window.location.hash.startsWith('#/login')) {
+        window.location.href = '/#/login';
       }
     }
     return Promise.reject(err);
