@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 
 // Verifies JWT and attaches the user to req.user
@@ -11,7 +12,15 @@ const protect = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.id);
+    let user = null;
+    if (mongoose.Types.ObjectId.isValid(decoded.id)) {
+      user = await User.findById(decoded.id);
+    }
+
+    if (!user) {
+      user = await User.findOne({ email: decoded.id });
+    }
+
     if (!user || !user.isActive) {
       return res.status(401).json({ message: 'Not authorized, user not found or inactive' });
     }

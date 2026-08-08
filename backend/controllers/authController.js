@@ -29,6 +29,30 @@ const login = async (req, res) => {
     const normalizedEmail = email.toLowerCase();
     const demoUser = demoUsers[normalizedEmail];
 
+    let user = null;
+    if (mongoose.connection.readyState === 1) {
+      try {
+        user = await User.findOne({ email: normalizedEmail }).select('+password');
+      } catch (dbErr) {
+        console.warn('DB lookup failed during login:', dbErr.message);
+        return res.status(503).json({ message: 'Authentication service is temporarily unavailable' });
+      }
+    }
+
+    if (user) {
+      if (!user.isActive) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      const token = signToken(user);
+      return res.json({ token, user: user.toSafeObject() });
+    }
+
     if (demoUser && password === demoUser.password) {
       const token = signToken({ _id: normalizedEmail, role: demoUser.role });
       return res.json({
@@ -47,13 +71,7 @@ const login = async (req, res) => {
       return res.status(503).json({ message: 'Authentication service is temporarily unavailable' });
     }
 
-    let user = null;
-    try {
-      user = await User.findOne({ email: normalizedEmail }).select('+password');
-    } catch (dbErr) {
-      console.warn('DB lookup failed during login:', dbErr.message);
-      return res.status(503).json({ message: 'Authentication service is temporarily unavailable' });
-    }
+    return res.status(401).json({ message: 'Invalid credentials' });
 
     if (!user || !user.isActive) {
       return res.status(401).json({ message: 'Invalid credentials' });
